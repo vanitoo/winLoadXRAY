@@ -1,13 +1,13 @@
-name: Build and Release - ver .exe
+name: Build and Release - winLoadXRAY
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ master ]
+    branches: [ main, master ]
 
 permissions:
-  contents: write  # нужно для создания релизов/тегов
+  contents: write
 
 jobs:
   build:
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0  # чтобы видеть теги/историю
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -30,44 +30,45 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
-          pip install "pyinstaller>=6.3,<7"  # современная ветка без сюрпризов
+          pip install "pyinstaller>=6.3,<7"
 
-      # Делаем однострочник на PowerShell.
-      - name: Print Python & SSL info
-        run: >
-          python -c "import ssl, sys; print('Python:', sys.version);
-          print('SSL   :', getattr(ssl, 'OPENSSL_VERSION', 'unknown'))"
+      - name: Print Python info
+        run: python -c "import sys; print('Python:', sys.version)"
 
-
-      # Проверка зависимостей на конфликты
       - name: pip check
         run: pip check
 
-      # Снимок списка пакетов в артефакт (на будущее)
       - name: Export dependency snapshot
         run: pip freeze > pip-freeze.txt
 
-      - name: Get version from version.py
+      - name: Get version from winLoadXRAY.py
         id: get_version
         shell: pwsh
         run: |
-          $version = (Get-Content version.py | Select-String '__version__ = "(.*)"').Matches.Groups[1].Value
+          $content = Get-Content winLoadXRAY.py -Raw
+          $version = ($content | Select-String 'APP_VERS\s*=\s*"([^"]+)"').Matches.Groups[1].Value
+          if ([string]::IsNullOrEmpty($version)) {
+            $version = "0.1.0"
+          }
           echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "Version found: $version"
 
-      - name: Build .exe with PyInstaller (no strip)
+      - name: Build .exe with PyInstaller
         run: |
-          pyinstaller --onefile --noconsole --clean --name main --hidden-import=_ssl --collect-all=certifi app.py
-
-        # Пояснение:
-        # --hidden-import=_ssl   → страхуем явное включение SSL-модуля
-        # --collect-data certifi → берём корневые сертификаты (cacert.pem) в бандл
+          pyinstaller --onefile --windowed --clean `
+            --name winLoadXRAY `
+            --hidden-import=PIL `
+            --hidden-import=requests `
+            --add-data "img;img" `
+            --add-data "func;func" `
+            winLoadXRAY.py
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v5
         with:
           name: build-artifacts
           path: |
-            dist/main.exe
+            dist/winLoadXRAY.exe
             pip-freeze.txt
 
       - name: Create GitHub Release
@@ -79,33 +80,21 @@ jobs:
           $version = "${{ steps.get_version.outputs.version }}"
           $release_tag = "v$version"
 
-          # Настроим git user, чтобы пушить тег из CI
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Проверка существования тега
-          $existing_tags = git ls-remote --tags origin | ForEach-Object { $_ -replace '.*/(v\d+\.\d+\.\d+)$', '$1' }
-
-          if ($existing_tags -contains $release_tag) {
-            Write-Host "Tag $release_tag already exists. Using existing tag."
+          # Проверка существования тега локально
+          $local_tags = git tag -l "$release_tag"
+          if ($local_tags) {
+            Write-Host "Tag $release_tag already exists locally"
           } else {
             Write-Host "Creating new tag: $release_tag"
-            git tag $release_tag
-            git push origin $release_tag
+            git tag "$release_tag"
           }
 
-          # Создание релиза с загрузкой файла
-          gh release create $release_tag dist/main.exe --title "Release $release_tag" --notes "Release notes for $release_tag"
+          # Пуш тега и создание релиза
+          git push origin "$release_tag" 2>&1 || Write-Host "Tag may already exist"
 
-      - name: Create GitHub Release in another repository
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}  # личный PAT с правами на repo vanitoo/pythonProject-OpenCV-PDF-Build
-        run: |
-          $version = "${{ steps.get_version.outputs.version }}"
-          $release_tag = "v$version"
-          gh release create $release_tag dist/main.exe `
-            --repo vanitoo/pythonProject-OpenCV-PDF-Build `
-            --title "Release $release_tag" `
-            --notes "Release notes for $release_tag" `
-            --generate-notes
+          gh release create "$release_tag" dist/winLoadXRAY.exe `
+            --title "winLoadXRAY $release_tag" `
+            --notes "Release $release_tag of winLoadXRAY"`
