@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "winLoadXRAY"
+version = "0.84-beta"
+description = "Python GUI обертка вокруг ядра XRAY для работы с прокси-соединениями и VPN"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "xVRVx", email = ""},
+]
+maintainers = [
+    {name = "xVRVx", email = ""},
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: Proxy Servers",
+    "Topic :: System :: Networking",
+    "Topic :: Security",
+]
+keywords = ["vpn", "proxy", "xray", "vless", "shadowsocks", "gui", "windows"]
+dependencies = [
+    "pillow>=10.0.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pyinstaller>=5.13.0",
+]
+
+[project.scripts]
+winLoadXRAY = "winLoadXRAY:main"
+
+[project.urls]
+Homepage = "https://github.com/xVRVx/winLoadXRAY/"
+Repository = "https://github.com/xVRVx/winLoadXRAY/"
+"Bug Tracker" = "https://github.com/xVRVx/winLoadXRAY/issues/"
+
+[tool.setuptools]
+packages = ["winLoadXRAY", "func"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.txt", "*.md", "*.png", "*.ico"]
+
+[tool.pyinstaller]
+# Дополнительные настройки для PyInstaller (опционально)
+onefile = true
+windowed = true
+icon = "img/icon.ico"

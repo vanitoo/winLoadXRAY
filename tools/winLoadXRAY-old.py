@@ -15,7 +15,7 @@ import webbrowser
 from urllib.parse import urlparse, parse_qs, unquote
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'func'))
-from parsing import parse_vless, parse_shadowsocks, sanitize_filename
+from parsing import parse_vless, parse_shadowsocks
 from configXray import generate_config
 from tun2proxy import get_default_interface, patch_direct_out_interface, start_tun2proxy, stop_tun2proxy
 from copyPast import cmd_copy, cmd_paste, cmd_cut, cmd_select_all
@@ -218,16 +218,13 @@ def toggle_system_proxy(host="127.0.0.1", port=2080):
         messagebox.showerror("Ошибка", f"Не удалось переключить прокси: {e}")
 
 def clear_xray_configs():
-    # Очистка старых данных (только конфиги, НЕ служебные файлы)
+    # Очистка старых данных
     configs.clear()
     listbox.delete(0, tk.END)
     
-    # Удаляем только json-файлы конфигов из папки CONFIGS_DIR
-    # НЕ удаляем служебные файлы: links.json, state.json
-    UTILITY_FILES = {"links.json", "state.json"}
-    
+    # Удаляем все json-файлы из папки CONFIGS_DIR
     for filename in os.listdir(CONFIGS_DIR):
-        if filename.endswith(".json") and filename not in UTILITY_FILES:
+        if filename.endswith(".json"):
             try:
                 os.remove(os.path.join(CONFIGS_DIR, filename))
             except Exception as e:
@@ -363,6 +360,10 @@ def add_from_url():
         return
 
     messagebox.showerror("Ошибка", "Введите корректную VLESS ссылку или URL на base64 с конфигами.")
+
+def sanitize_filename(name):
+    # Удаляем недопустимые символы для имени файла в Windows
+    return re.sub(r'[<>:"/\\|?*]', '_', name)
 
 
 # --- Запуск Xray ---
@@ -605,15 +606,6 @@ def vrv_tun_mode_toggle():
 # --- Интерфейс ---
 root = tk.Tk()
 
-# Применяем современную тему
-from ui_enhancement import ModernUI, apply_modern_theme
-from fast_tooltips import FastToolTip, create_fast_tooltip
-from ui_themes import ThemeManager, AnimationManager
-
-# Инициализируем менеджер тем
-theme_manager = ThemeManager()
-apply_modern_theme(root)
-
 icon_path = resource_path("img/logo.png")
 icon = PhotoImage(file=icon_path)
 root.iconphoto(True, icon)
@@ -621,7 +613,7 @@ root.iconphoto(True, icon)
 icon_path = resource_path("img/icon.ico")
 root.iconbitmap(icon_path)
 
-root.minsize(480, 350)
+root.minsize(400, 280)
 
 def keypress(e):
     if e.keycode == 86:
@@ -634,333 +626,13 @@ def keypress(e):
         cmd_select_all(root)
 root.bind("<Control-KeyPress>", keypress)
 
-def select_config(listbox):
+def select_config():
     selected = listbox.curselection()
     if not selected:
         return
     tag = listbox.get(selected[0])
     highlight_active(tag)
 
-# Функция on_enter_key будет определена после создания всех виджетов
-
-root.title(APP_NAME+" "+APP_VERS+" "+XRAY_VERS)
-
-# Создаем главный контейнер с отступами
-main_container = ModernUI.create_modern_frame(root, padding=20)
-
-# Заголовок приложения
-header_frame = ModernUI.create_modern_frame(main_container, padding=5)
-title_label = ModernUI.create_modern_label(
-    header_frame, 
-    f"{APP_NAME} v{APP_VERS}", 
-    variant='primary', 
-    size='large'
-)
-title_label.pack()
-
-subtitle_label = ModernUI.create_modern_label(
-    header_frame, 
-    f"XRAY Core v{XRAY_VERS}", 
-    variant='secondary', 
-    size='small'
-)
-subtitle_label.pack()
-
-# Поле ввода URL
-input_frame = ModernUI.create_modern_frame(main_container, padding=15)
-input_label = ModernUI.create_modern_label(
-    input_frame, 
-    "Подписка или конфигурация", 
-    variant='primary', 
-    size='small'
-)
-input_label.pack(anchor='w')
-
-input_container, entry = ModernUI.create_modern_entry(input_frame, "Вставьте URL подписки или конфигурации XRAY", 40)
-input_container.pack(fill='x', pady=(5, 10))
-
-# Панель кнопок ввода
-button_frame = ModernUI.create_modern_frame(input_frame, padding=0, bg=ModernUI.COLORS['surface'])
-button_frame.pack(fill='x')
-
-# Кнопка загрузки
-img = Image.open(resource_path("img/ico.png"))
-img = img.resize((20, 20), Image.Resampling.LANCZOS)
-icon1 = ImageTk.PhotoImage(img)
-
-def modern_add_from_url():
-    add_from_url()
-
-def modern_add_from_clipboard():
-    add_from_clipboard_and_parse()
-
-btn_load = ModernUI.create_modern_button(
-    button_frame, 
-    "Загрузить", 
-    modern_add_from_url,
-    variant='primary',
-    size='small'
-)
-btn_load.pack(side='left', padx=(0, 5))
-
-# Кнопка вставки из буфера
-img2 = Image.open(resource_path("img/ref.png"))
-img2 = img2.resize((20, 20), Image.Resampling.LANCZOS)
-icon2 = ImageTk.PhotoImage(img2)
-
-btn_paste = ModernUI.create_modern_button(
-    button_frame, 
-    "Вставить", 
-    modern_add_from_clipboard,
-    variant='secondary',
-    size='small'
-)
-btn_paste.pack(side='left')
-
-# Быстрые подсказки для кнопок загрузки
-FastToolTip(btn_load, "Загрузить конфигурацию из URL", delay_show=100, delay_hide=30)
-FastToolTip(btn_paste, "Вставить из буфера обмена", delay_show=100, delay_hide=30)
-
-# вставка из буфера обмена
-def add_from_clipboard_and_parse():
-    try:
-        clipboard_text = root.clipboard_get().strip()
-        entry.delete(0, tk.END)
-        entry.insert(0, clipboard_text)
-        add_from_url()
-    except Exception as e:
-        messagebox.showerror("Ошибка", f"Не удалось получить данные из буфера обмена: {e}")
-
-# Список конфигураций
-listbox_frame = ModernUI.create_modern_frame(main_container, padding=15)
-listbox_label = ModernUI.create_modern_label(
-    listbox_frame, 
-    "Конфигурации", 
-    variant='primary', 
-    size='small'
-)
-listbox_label.pack(anchor='w')
-
-listbox_container, listbox = ModernUI.create_modern_listbox(listbox_frame, height=6)
-listbox_container.pack(fill='both', expand=True, pady=(5, 10))
-
-# Связываем события для списка
-listbox.bind('<<ListboxSelect>>', lambda e: select_config(listbox))
-
-
-
-# Основные кнопки управления
-control_frame = ModernUI.create_modern_frame(main_container, padding=15)
-
-# Кнопка запуска конфигурации
-btn_run = ModernUI.create_modern_button(
-    control_frame, 
-    "Запустить конфиг", 
-    run_selected,
-    variant='primary',
-    size='medium'
-)
-btn_run.pack(side='left', padx=(0, 10))
-
-# Кнопка системного прокси
-btn_proxy = ModernUI.create_modern_button(
-    control_frame, 
-    "Системный прокси", 
-    toggle_system_proxy,
-    variant='secondary',
-    size='medium'
-)
-btn_proxy.pack(side='left')
-
-# Быстрые подсказки для основных кнопок
-FastToolTip(btn_run, "Запустить XRAY SOCKS5 на порту 2080", delay_show=100, delay_hide=30)
-FastToolTip(btn_proxy, "Настроить системный прокси Windows\n(работает только для браузеров)", delay_show=100, delay_hide=30)
-
-
-# Дополнительные настройки
-settings_frame = ModernUI.create_modern_frame(main_container, padding=15)
-        
-# Автозапуск
-startup_var = tk.BooleanVar(value=is_in_startup())
-startup_check = ModernUI.create_modern_checkbutton(
-    settings_frame, 
-    "Автозапуск с Windows", 
-    startup_var, 
-    toggle_startup
-)
-startup_check.pack(side='left')
-
-# TUN режим
-btn_tun = ModernUI.create_modern_button(
-    settings_frame, 
-    "Включить TUN", 
-    vrv_tun_mode_toggle,
-    variant='warning',
-    size='medium'
-)
-btn_tun.pack(side='right')
-
-# Быстрая подсказка для TUN режима
-FastToolTip(btn_tun, "Включить TUN режим\n(требует права администратора)\nСоздает виртуальную сетевую карту", delay_show=100, delay_hide=30)
-
-
-# Нижняя панель со ссылками и переключателем темы
-footer_frame = ModernUI.create_modern_frame(root, padding=10, bg=ModernUI.COLORS['surface'])
-footer_frame.pack(fill='x', side='bottom')
-
-# Левая часть - ссылки
-links_frame = tk.Frame(footer_frame, bg=ModernUI.COLORS['surface'])
-links_frame.pack(side='left')
-
-# Создаем современные ссылки
-def create_modern_link(parent, text, command, color=ModernUI.COLORS['primary']):
-    link = tk.Label(
-        parent,
-        text=text,
-        fg=color,
-        bg=ModernUI.COLORS['surface'],
-        font=('Segoe UI', 9, 'underline'),
-        cursor='hand2'
-    )
-    link.bind('<Button-1>', lambda e: command())
-    
-    # Hover эффекты
-    def on_enter(e):
-        link.config(fg=ModernUI.COLORS['primary_hover'])
-    def on_leave(e):
-        link.config(fg=color)
-        
-    link.bind('<Enter>', on_enter)
-    link.bind('<Leave>', on_leave)
-    
-    return link
-
-# Ссылки
-link_telegram = create_modern_link(links_frame, "Telegram бот", open_link)
-link_telegram.pack(side='left', padx=(0, 15))
-
-link_github = create_modern_link(links_frame, "GitHub", github)
-link_github.pack(side='left')
-
-# Правая часть - переключатель темы
-theme_frame = tk.Frame(footer_frame, bg=ModernUI.COLORS['surface'])
-theme_frame.pack(side='right')
-
-# Кнопка переключения темы
-def create_theme_toggle():
-    """Создает кнопку переключения темы"""
-    current_theme = theme_manager.current_theme
-    
-    # Символы для разных тем
-    sun_icon = "☀️"  # Для переключения на светлую
-    moon_icon = "🌙"  # Для переключения на темную
-    
-    icon_text = moon_icon if current_theme == 'light' else sun_icon
-    tooltip_text = "Переключить на светлую тему" if current_theme == 'dark' else "Переключить на темную тему"
-    
-    btn = tk.Button(
-        theme_frame,
-        text=icon_text,
-        command=toggle_theme,
-        bg=ModernUI.COLORS['surface'],
-        fg=ModernUI.COLORS['text_primary'],
-        font=('Segoe UI', 12),
-        relief='flat',
-        borderwidth=0,
-        cursor='hand2',
-        width=3,
-        height=1
-    )
-    
-    # Hover эффекты
-    def on_enter(e):
-        btn.config(bg=ModernUI.COLORS['border'])
-    def on_leave(e):
-        btn.config(bg=ModernUI.COLORS['surface'])
-        
-    btn.bind('<Enter>', on_enter)
-    btn.bind('<Leave>', on_leave)
-    
-    # Быстрая подсказка
-    FastToolTip(btn, tooltip_text, delay_show=150, delay_hide=50)
-    
-    return btn
-
-def toggle_theme():
-    """Переключает тему интерфейса"""
-    new_theme = theme_manager.toggle_theme()
-    
-    # Анимация перехода
-    AnimationManager.fade_out(root, duration=200)
-    root.after(200, lambda: apply_theme(new_theme))
-
-def apply_theme(theme_name):
-    """Применяет тему ко всему интерфейсу"""
-    theme = theme_manager.get_current_theme()
-    
-    # Обновляем цвета всех элементов
-    root.configure(bg=theme['background'])
-    
-    # Обновляем все фреймы и элементы
-    update_widget_colors(root, theme)
-    
-    # Обновляем кнопку темы
-    refresh_theme_button()
-    
-    # Показываем интерфейс с анимацией
-    AnimationManager.fade_in(root, duration=200)
-
-def update_widget_colors(widget, theme):
-    """Рекурсивно обновляет цвета всех виджетов"""
-    try:
-        # Обновляем текущий виджет
-        widget_class = widget.winfo_class()
-        
-        if widget_class in ['Frame', 'TFrame']:
-            widget.configure(bg=theme['background'])
-        elif widget_class in ['Label', 'TLabel']:
-            if 'fg' in widget.keys():
-                current_fg = widget.cget('fg')
-                if current_fg in ['#0f172a', '#000000', 'black']:
-                    widget.configure(fg=theme['text_primary'], bg=theme['background'])
-                elif current_fg in ['#64748b', '#808080', 'gray', 'grey']:
-                    widget.configure(fg=theme['text_secondary'], bg=theme['background'])
-        elif widget_class in ['Button', 'TButton']:
-            if 'bg' in widget.keys():
-                current_bg = widget.cget('bg')
-                # Не трогаем цветные кнопки
-                if current_bg not in ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#64748b']:
-                    widget.configure(bg=theme['surface'], fg=theme['text_primary'])
-        
-        # Обновляем дочерние виджеты
-        for child in widget.winfo_children():
-            update_widget_colors(child, theme)
-    except:
-        pass
-
-def refresh_theme_button():
-    """Обновляет кнопку переключения темы"""
-    for child in theme_frame.winfo_children():
-        child.destroy()
-    
-    theme_btn = create_theme_toggle()
-    theme_btn.pack()
-
-# Создаем кнопку переключения темы
-theme_btn = create_theme_toggle()
-theme_btn.pack()
-
-# Место для ссылки обновления будет добавлено динамически
-
-
-load_base64_urls()
-load_state()
-
-# если запущено из автозапуска — стартуем свернутыми
-if IS_AUTOSTART:
-    root.iconify()
-
-# Определяем функцию обработки нажатия Enter после создания всех виджетов
 def on_enter_key(event):
     global xray_process
     if entry == root.focus_get():
@@ -978,8 +650,139 @@ def on_enter_key(event):
         else:
             run_selected()
 
-# Привязываем обработчик клавиш
+
 root.bind('<Return>', on_enter_key)
+
+root.title(APP_NAME+" "+APP_VERS+" "+XRAY_VERS)
+
+root.configure(bg="#e8e8e8")
+
+
+
+# Контейнер для поля ввода и иконки
+frame = tk.Frame(root, bg="#e8e8e8")
+frame.pack(padx=10, pady=5)
+
+entry = tk.Entry(frame, width=31, bg="#fff", fg="#000", insertbackground="#ffffff", font=("Arial", 12))
+entry.pack(side="left", padx=5, pady=0, ipady=3)
+
+ToolTip(entry, "Вставьте сюда URL подписки или конфига XRAY")
+
+# вставка из буфера обмена
+def add_from_clipboard_and_parse():
+    try:
+        clipboard_text = root.clipboard_get().strip()
+        entry.delete(0, tk.END)
+        entry.insert(0, clipboard_text)
+        add_from_url()
+    except Exception as e:
+        messagebox.showerror("Ошибка", f"Не удалось получить данные из буфера обмена: {e}")
+
+
+# Загрузка изображения (иконки)
+img = Image.open(resource_path("img/ico.png"))  # путь к вашей картинке
+img = img.resize((30, 30), Image.Resampling.LANCZOS)
+icon1 = ImageTk.PhotoImage(img)
+
+# В кнопке меняем команду:
+btnBuffer = tk.Button(frame, image=icon1, command=add_from_url, bg="#dcedf8")
+btnBuffer.pack(side="right", padx=2.2, pady=3)
+
+ToolTip(btnBuffer, "Обновить подписку")
+
+# Загрузка изображения (иконки)
+img = Image.open(resource_path("img/ref.png"))  # путь к вашей картинке
+img = img.resize((30, 30), Image.Resampling.LANCZOS)
+icon2 = ImageTk.PhotoImage(img)
+
+# В кнопке меняем команду:
+btnBuffer = tk.Button(frame, image=icon2, command=add_from_clipboard_and_parse, bg="#dcedf8")
+btnBuffer.pack(side="right", padx=2.2, pady=3)
+
+ToolTip(btnBuffer, "Вставить из буфера обмена")
+
+
+frame = tk.Frame(root)
+frame.pack(padx=10, pady=5)
+
+listbox = tk.Listbox(frame, width=38, height=8, bg="#fff", font=("Arial", 12))
+listbox.pack(side=tk.LEFT, fill=tk.BOTH)
+# Создаём вертикальную полосу прокрутки
+scrollbar = tk.Scrollbar(frame, orient=tk.VERTICAL)
+scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+# Связываем Listbox и Scrollbar
+listbox.config(yscrollcommand=scrollbar.set)
+scrollbar.config(command=listbox.yview)
+
+
+
+frame = tk.Frame(root)
+frame.pack(padx=10, pady=5)
+btn_run = tk.Button(frame, text="Запустить конфиг", font=("Arial", 12), command=run_selected)
+btn_run.pack(side=tk.LEFT, pady=3)
+ToolTip(btn_run, "socks5 на 2080 порту")
+
+btn_proxy = tk.Button(frame, text="Включить системный прокси", font=("Arial", 12), command=toggle_system_proxy)
+ToolTip(btn_proxy, "Запустите конфиг и выключите другие прокси расширения.\nРаботает только для браузеров.")
+
+btn_proxy.pack(side=tk.RIGHT, pady=3)
+#tk.Button(root, text="Остановить Xray", command=stop_xray, bg="#ffcccc").pack(pady=3)
+
+
+        
+frame = tk.Frame(root)
+frame.pack(padx=10, pady=5)
+
+startup_var = tk.BooleanVar(value=is_in_startup())
+startup_check = tk.Checkbutton(frame, text="Автозапуск", font=("Arial", 12), variable=startup_var, command=toggle_startup)
+startup_check.pack(side=tk.LEFT, pady=4, padx=14)
+
+
+    
+btn_tun = tk.Button(frame, text="Включить TUN", font=("Arial", 12), command=vrv_tun_mode_toggle)
+ToolTip(btn_tun, "Только от имени Администратора! Ожидание VPN 30 сек!\nСоздается виртуальная сетевая карта.")
+btn_tun.pack(side=tk.RIGHT, pady=3)
+
+
+frameBot = tk.Frame(root)
+frameBot.pack(padx=10, pady=2)
+
+# Создаём "ссылку" внизу
+link1 = tk.Label(
+    frameBot,
+    text="Наш Telegram бот",
+    fg="#000",
+    cursor="hand2",
+    font=("Arial", 10, "underline")
+)
+link1.pack(side="left", pady=5)
+
+# Привязываем обработчик
+link1.bind("<Button-1>", open_link)
+
+# Создаём "ссылку" внизу
+link2 = tk.Label(
+    frameBot,
+    text="GitHub",
+    fg="#000",
+    cursor="hand2",
+    font=("Arial", 10, "underline")
+)
+link2.pack(side="left", pady=5)
+
+# Привязываем обработчик
+link2.bind("<Button-1>", github)
+
+# Здесь будет появляться ссылка на обновление при проверке версии
+
+
+load_base64_urls()
+load_state()
+
+# если запущено из автозапуска — стартуем свернутыми
+if IS_AUTOSTART:
+    root.iconify()
 
 root.after(3000, check_latest_version)  # Проверка через 2 секунды после запуска
 

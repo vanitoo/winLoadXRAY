@@ -1,0 +1,11 @@
+name: winLoadXRAY
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.8
+  - pip
+  - pip:
+    - pillow>=10.0.0
+    - requests>=2.31.0
+    - pyinstaller>=5.13.0

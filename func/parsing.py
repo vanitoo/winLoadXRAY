@@ -3,8 +3,38 @@ import base64
 import re
 
 def sanitize_filename(name):
-    # Удаляем недопустимые символы для имени файла в Windows
-    return re.sub(r'[<>:"/\\|?*]', '_', name)
+    """
+    Безопасное имя файла: удаляет недопустимые символы, проверяет на пустоту и спец. значения.
+    Гарантирует безопасное имя для сохранения конфигурационных файлов.
+    """
+    if not name or not name.strip():
+        return "unnamed_config"
+    
+    name = name.strip()
+    
+    # Запрещаем опасные значения
+    if name in (".", ".."):
+        return "unnamed_config"
+    
+    # Удаляем недопустимые символы для Windows
+    name = re.sub(r'[<>:"/\\|?*]', '_', name)
+    
+    # Удаляем непечатаемые символы
+    name = re.sub(r'[\x00-\x1f\x7f]', '', name)
+    
+    # Обрезаем слишком длинные имена (Windows ограничение 255, берем с запасом)
+    max_length = 200
+    if len(name) > max_length:
+        name = name[:max_length]
+    
+    # Убираем точки в начале и конце (проблемы в Windows)
+    name = name.strip('. ')
+    
+    # Если после всех преобразований имя пустое
+    if not name:
+        return "unnamed_config"
+    
+    return name
 
 # --- Парсинг VLESS-ссылки ---
 def parse_vless(url):
@@ -60,6 +90,9 @@ def parse_shadowsocks(url):
         server, port = address_part.split(":")
     else:
         raise ValueError("Некорректный формат Shadowsocks ссылки")
+
+    # Применяем sanitize_filename к тегу
+    tag = sanitize_filename(tag)
 
     return {
         "protocol": "shadowsocks",

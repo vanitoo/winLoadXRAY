@@ -1,0 +1,139 @@
+# ==============================================
+# .gitattributes для проекта winLoadXRAY
+# Настройки Git для корректной работы с различными файлами
+# ==============================================
+
+# =========================
+# Автоопределение языка
+# =========================
+*.py linguist-language=Python
+*.md linguist-language=Markdown
+*.bat linguist-language=Shell
+*.ps1 linguist-language=PowerShell
+*.json linguist-language=JSON
+*.toml linguist-language=TOML
+*.txt linguist-language=Text
+
+# =========================
+# Исключение из статистики языков
+# =========================
+# Исключаем изображения из статистики языков
+img/* linguist-documentation
+*.png linguist-documentation
+*.ico linguist-documentation
+*.jpg linguist-documentation
+*.jpeg linguist-documentation
+*.gif linguist-documentation
+
+# Исключаем внешние компоненты
+xray/* linguist-generated
+tun2proxy/* linguist-generated
+
+# =========================
+# Обработка переводов строк
+# =========================
+# Windows файлы
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Unix файлы
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+
+# Бинарные файлы
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+
+# =========================
+# Сжатие и диффы
+# =========================
+# Для больших бинарных файлов
+*.exe diff=zip
+*.dll diff=zip
+*.zip diff=zip
+
+# Для изображений
+*.png diff=imagemagick
+*.jpg diff=imagemagick
+*.jpeg diff=imagemagick
+*.gif diff=imagemagick
+
+# =========================
+# Специальная обработка
+# =========================
+# Поддержка Python
+*.py diff=python
+*.pyx diff=python
+
+# Поддержка JSON
+*.json diff=json
+
+# Поддержка Markdown
+*.md diff=markdown
+
+# =========================
+# Файлы с особой обработкой
+# =========================
+# GitHub должен распознавать этот файл как документацию
+README.md linguist-documentation
+
+# Файлы лицензии
+LICENSE linguist-documentation
+
+# Конфигурационные файлы
+requirements*.txt linguist-documentation
+pyproject.toml linguist-documentation
+setup.py linguist-documentation
+
+# =========================
+# Маркеры для GitHub
+# =========================
+# Помечаем файлы, которые должны быть видны на GitHub
+*.md linguist-documentation
+LICENSE linguist-documentation
+CONTRIBUTING.md linguist-documentation
+
+# =========================
+# Настройки для конкретных файлов
+# =========================
+# Устанавливаем UTF-8 для всех текстовых файлов
+*.py text working-tree-encoding=UTF-8
+*.md text working-tree-encoding=UTF-8
+*.txt text working-tree-encoding=UTF-8
+*.json text working-tree-encoding=UTF-8
+
+# =========================
+# Исключения для больших файлов
+# =========================
+# Помечаем большие файлы как сгенерированные (не считаются в статистике)
+xray/* linguist-generated=true
+tun2proxy/* linguist-generated=true
+dist/* linguist-generated=true
+build/* linguist-generated=true
+
+# =========================
+# Примечания
+# =========================
+# 
+# Этот файл .gitattributes настроен для:
+# 
+# 1. Корректной обработки переводов строк (Windows/Unix)
+# 2. Правильного определения языков программирования
+# 3. Исключения бинарных файлов из статистики языков
+# 4. Улучшенного отображения диффов
+# 5. Поддержки различных форматов файлов
+#
+# Проверка настроек:
+# git check-attr -a path/to/file
+# git ls-files --eol
+#
