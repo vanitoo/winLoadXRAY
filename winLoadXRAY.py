@@ -198,24 +198,41 @@ configs = {}
 
 
 # --- Системный прокси ---
-def toggle_system_proxy(host="127.0.0.1", port=2080):
+def enable_system_proxy(host="127.0.0.1", port=2080):
+    """Явное включение системного прокси"""
     global proxy_enabled
     path = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_SET_VALUE) as key:
-            if not proxy_enabled:
-                winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, 1)
-                winreg.SetValueEx(key, "ProxyServer", 0, winreg.REG_SZ, f"{host}:{port}")
-                proxy_enabled = True
-                btn_proxy.config(text="Выключить системный прокси")
-            else:
-                winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, 0)
-                proxy_enabled = False
-                btn_proxy.config(text="Включить системный прокси")
+            winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, 1)
+            winreg.SetValueEx(key, "ProxyServer", 0, winreg.REG_SZ, f"{host}:{port}")
+        proxy_enabled = True
+        btn_proxy.config(text="Выключить системный прокси")
         save_state()
         update_proxy_button_color()
     except Exception as e:
-        messagebox.showerror("Ошибка", f"Не удалось переключить прокси: {e}")
+        messagebox.showerror("Ошибка", f"Не удалось включить прокси: {e}")
+
+def disable_system_proxy():
+    """Явное отключение системного прокси"""
+    global proxy_enabled
+    path = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, 0)
+        proxy_enabled = False
+        btn_proxy.config(text="Включить системный прокси")
+        save_state()
+        update_proxy_button_color()
+    except Exception as e:
+        messagebox.showerror("Ошибка", f"Не удалось отключить прокси: {e}")
+
+def toggle_system_proxy(host="127.0.0.1", port=2080):
+    """Переключение системного прокси (для совместимости с UI)"""
+    if not proxy_enabled:
+        enable_system_proxy(host, port)
+    else:
+        disable_system_proxy()
 
 def clear_xray_configs():
     # Очистка старых данных (только конфиги, НЕ служебные файлы)
@@ -412,17 +429,28 @@ def stop_xray():
 
 
 def stop_system_proxy():
-    global proxy_enabled
+    """Отключение системного прокси (использует явную функцию)"""
+    disable_system_proxy()
 
-    # Отключаем системный прокси
+# --- Явные функции управления Xray ---
+def restart_xray_with_tag(tag):
+    """Перезапуск Xray с указанным тегом"""
+    global xray_process
+    if not tag:
+        print("Тег не указан для перезапуска.")
+        return
+
+    config_path = os.path.join(CONFIGS_DIR, f"{tag}.json")
+    if not os.path.exists(config_path):
+        print(f"Конфиг не найден: {config_path}")
+        return
+
     try:
-        path = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_SET_VALUE) as key:
-            winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, 0)
-        proxy_enabled = False
-        update_proxy_button_color()
+        xray_process = subprocess.Popen([XRAY_EXE, "-config", config_path], creationflags=CREATE_NO_WINDOW)
+        highlight_active(tag)
+        btn_run.config(text="Остановить конфиг", bg="lightgreen")
     except Exception as e:
-        messagebox.showerror("Ошибка", f"Не удалось отключить прокси: {e}")
+        messagebox.showerror("Ошибка", f"Не удалось перезапустить Xray: {e}")
 
 # --- Функция подсветки активного тега: ---
 def highlight_active(tag):
@@ -534,22 +562,8 @@ def toggle_startup():
         remove_from_startup()
 
 def restart_xray_with_active():
-    global xray_process
-    if not active_tag:
-        print("Нет активного тега для перезапуска.")
-        return
-
-    config_path = os.path.join(CONFIGS_DIR, f"{active_tag}.json")
-    if not os.path.exists(config_path):
-        print(f"Конфиг не найден: {config_path}")
-        return
-
-    try:
-        xray_process = subprocess.Popen([XRAY_EXE, "-config", config_path], creationflags=CREATE_NO_WINDOW)
-        highlight_active(active_tag)
-        btn_run.config(text="Остановить конфиг", bg="lightgreen")
-    except Exception as e:
-        messagebox.showerror("Ошибка", f"Не удалось перезапустить Xray: {e}")
+    """Перезапуск Xray с активным тегом (использует явную функцию)"""
+    restart_xray_with_tag(active_tag)
 
 def is_admin():
     try:
@@ -972,11 +986,8 @@ def on_enter_key(event):
             if active >= 0:
                 listbox.selection_clear(0, tk.END)
                 listbox.selection_set(active)
-        if xray_process and xray_process.poll() is None:        
-            run_selected()
-            run_selected()
-        else:
-            run_selected()
+        # Исправлено: убран двойной вызов run_selected()
+        run_selected()
 
 # Привязываем обработчик клавиш
 root.bind('<Return>', on_enter_key)

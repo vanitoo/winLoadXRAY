@@ -5,9 +5,12 @@
 - не меняй UX/поведение, кроме явно описанного
 - после каждого таска: что поменял + как проверить
 
-TASK 1 (data-loss fix): В clear_xray_configs() НЕ удаляй links.json и state.json (и любые служебные файлы). Удаляй только конфиги.
-TASK 2 (tag safety): Гарантируй sanitize_filename(tag) перед записью любых файлов конфигов во ВСЕХ ветках (vless/ss/base64/json). Исключи пустое имя, “..”, слишком длинные имена. Сделай единый sanitize в parsing.py и импортируй.
-TASK 3 (remove hacks): Убери двойные вызовы toggle_system_proxy() и run_selected(). Сделай явные функции:
+- Никаких рефакторингов в классы и никаких переносов файлов, только точечные фиксы.
+
+
+TASK 1 ✅ (data-loss fix): В clear_xray_configs() НЕ удаляй links.json и state.json (и любые служебные файлы). Удаляй только конфиги.
+TASK 2 ✅ (tag safety): Гарантируй sanitize_filename(tag) перед записью любых файлов конфигов во ВСЕХ ветках (vless/ss/base64/json). Исключи пустое имя, “..”, слишком длинные имена. Сделай единый sanitize в parsing.py и импортируй.
+TASK 3 ✅ (remove hacks): Убери двойные вызовы toggle_system_proxy() и run_selected(). Сделай явные функции:
 - enable_system_proxy(host,port)
 - disable_system_proxy()
 - restart_xray_with_tag(tag)
